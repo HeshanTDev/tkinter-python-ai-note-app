@@ -1,96 +1,52 @@
-from typing import List, Optional
+"""
+services/note_service.py
+Business-level operations for notes.
+Delegates all database work to NoteRepository.
+"""
+
+from typing import List
 from datetime import datetime
-from database.db import db
-from models.note_model import Note, Tag
+from models.note_model import Note
+from repositories.note_repository import NoteRepository
 from utils.logger import setup_logger
 
 logger = setup_logger("NoteService")
 
+
 class NoteService:
-    @staticmethod
-    def _get_current_time() -> str:
-        return datetime.now().isoformat()
+    """High-level note operations — auto-timestamps, validation, etc."""
 
     @staticmethod
     def create_note(title: str, content: str) -> Note:
-        now = NoteService._get_current_time()
-        try:
-            with db.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "INSERT INTO notes (title, content, created_at, updated_at) VALUES (?, ?, ?, ?)",
-                    (title, content, now, now)
-                )
-                note_id = cursor.lastrowid
-                return Note(id=note_id, title=title, content=content, created_at=now, updated_at=now)
-        except Exception as e:
-            logger.error(f"Failed to create note: {e}")
-            raise
+        """Create a new note with automatic timestamps."""
+        now = datetime.now().isoformat()
+        note_id = NoteRepository.insert(title, content, now, now)
+        logger.info(f"Created note id={note_id}")
+        return Note(id=note_id, title=title, content=content, created_at=now, updated_at=now)
 
     @staticmethod
     def update_note(note_id: int, title: str, content: str) -> None:
-        now = NoteService._get_current_time()
-        try:
-            with db.get_connection() as conn:
-                conn.execute(
-                    "UPDATE notes SET title = ?, content = ?, updated_at = ? WHERE id = ?",
-                    (title, content, now, note_id)
-                )
-        except Exception as e:
-            logger.error(f"Failed to update note {note_id}: {e}")
-            raise
+        """Update an existing note (auto-refreshes updated_at)."""
+        now = datetime.now().isoformat()
+        NoteRepository.update(note_id, title, content, now)
 
     @staticmethod
     def delete_note(note_id: int) -> None:
-        try:
-            with db.get_connection() as conn:
-                conn.execute("DELETE FROM notes WHERE id = ?", (note_id,))
-        except Exception as e:
-            logger.error(f"Failed to delete note {note_id}: {e}")
-            raise
+        """Delete a note by id."""
+        NoteRepository.delete(note_id)
+        logger.info(f"Deleted note id={note_id}")
 
     @staticmethod
     def get_all_notes() -> List[Note]:
-        try:
-            with db.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT * FROM notes ORDER BY updated_at DESC")
-                rows = cursor.fetchall()
-                notes = []
-                for row in rows:
-                    notes.append(Note(
-                        id=row['id'],
-                        title=row['title'],
-                        content=row['content'],
-                        created_at=row['created_at'],
-                        updated_at=row['updated_at']
-                    ))
-                return notes
-        except Exception as e:
-            logger.error(f"Failed to get notes: {e}")
-            return []
+        """Return all notes, newest first."""
+        return NoteRepository.fetch_all()
 
     @staticmethod
     def search_notes(query: str) -> List[Note]:
-        try:
-            with db.get_connection() as conn:
-                cursor = conn.cursor()
-                search_query = f"%{query}%"
-                cursor.execute(
-                    "SELECT * FROM notes WHERE title LIKE ? OR content LIKE ? ORDER BY updated_at DESC",
-                    (search_query, search_query)
-                )
-                rows = cursor.fetchall()
-                notes = []
-                for row in rows:
-                    notes.append(Note(
-                        id=row['id'],
-                        title=row['title'],
-                        content=row['content'],
-                        created_at=row['created_at'],
-                        updated_at=row['updated_at']
-                    ))
-                return notes
-        except Exception as e:
-            logger.error(f"Failed to search notes: {e}")
-            return []
+        """Search notes by title or content."""
+        return NoteRepository.search(query)
+
+    @staticmethod
+    def get_note_count() -> int:
+        """Return total number of notes."""
+        return NoteRepository.get_count()

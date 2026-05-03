@@ -1,89 +1,126 @@
+"""
+ui/sidebar.py
+Application sidebar with navigation, branding, and appearance toggle.
+"""
+
 import customtkinter as ctk
+from config.theme import COLORS, FONTS, RADIUS, SPACING
+
 
 class Sidebar(ctk.CTkFrame):
+    """Main navigation sidebar for the application."""
+
+    NAV_ITEMS = [
+        {"key": "notes",    "label": "📝  My Notes",   "row": 2},
+        {"key": "ai_tools", "label": "✨  AI Tools",    "row": 3},
+        {"key": "settings", "label": "⚙️  Settings",    "row": 4},
+    ]
+
     def __init__(self, master, nav_callback, **kwargs):
-        super().__init__(master, width=220, corner_radius=0, fg_color=("#f0f0f0", "#1a1a1a"), **kwargs)
+        super().__init__(
+            master,
+            width=230,
+            corner_radius=0,
+            fg_color=COLORS["bg_sidebar"],
+            **kwargs,
+        )
         self.nav_callback = nav_callback
+        self._buttons = {}  # key -> CTkButton
 
-        self.grid_rowconfigure(4, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(5, weight=1)  # spacer pushes footer down
 
-        # Brand Header
-        self.brand_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.brand_frame.grid(row=0, column=0, padx=20, pady=(40, 30), sticky="ew")
-        
-        self.logo_label = ctk.CTkLabel(
-            self.brand_frame, 
-            text="AI NOTES", 
-            font=ctk.CTkFont(family="Inter", size=24, weight="bold"),
-            text_color=("#1a1a1a", "#ffffff")
-        )
-        self.logo_label.pack(anchor="center")
-        
-        self.subtitle_label = ctk.CTkLabel(
-            self.brand_frame,
+        # ── Brand ────────────────────────────────────────────────────────────
+        brand = ctk.CTkFrame(self, fg_color="transparent")
+        brand.grid(row=0, column=0, padx=SPACING["lg"], pady=(36, 8), sticky="ew")
+
+        ctk.CTkLabel(
+            brand,
+            text="AI NOTES",
+            font=ctk.CTkFont(family=FONTS["brand"][0], size=FONTS["brand"][1], weight="bold"),
+            text_color=COLORS["text_primary"],
+        ).pack(anchor="w")
+
+        ctk.CTkLabel(
+            brand,
             text="Smart writing companion",
-            font=ctk.CTkFont(family="Inter", size=11),
-            text_color=("gray50", "gray50")
-        )
-        self.subtitle_label.pack(anchor="center", pady=(0, 10))
+            font=ctk.CTkFont(family=FONTS["caption"][0], size=FONTS["caption"][1]),
+            text_color=COLORS["text_muted"],
+        ).pack(anchor="w", pady=(2, 0))
 
-        # Navigation Buttons
-        self.notes_btn = ctk.CTkButton(
-            self, 
-            text="  My Notes", 
-            image=None, # Placeholder for icons if needed
-            command=lambda: self._on_nav_click("notes"),
-            font=ctk.CTkFont(family="Inter", size=14, weight="normal"),
-            height=45,
-            corner_radius=8,
-            fg_color="transparent",
-            hover_color=("#e5e5e5", "#2d2d2d"),
-            text_color=("gray10", "gray80"),
-            anchor="w"
-        )
-        self.notes_btn.grid(row=1, column=0, padx=15, pady=5, sticky="ew")
+        # ── Divider ──────────────────────────────────────────────────────────
+        ctk.CTkFrame(
+            self, height=1, fg_color=COLORS["border"],
+        ).grid(row=1, column=0, sticky="ew", padx=SPACING["lg"], pady=(16, 16))
 
-        self.settings_btn = ctk.CTkButton(
-            self, 
-            text="  Settings", 
-            command=lambda: self._on_nav_click("settings"),
-            font=ctk.CTkFont(family="Inter", size=14, weight="normal"),
-            height=45,
-            corner_radius=8,
-            fg_color="transparent",
-            hover_color=("#e5e5e5", "#2d2d2d"),
-            text_color=("gray10", "gray80"),
-            anchor="w"
-        )
-        self.settings_btn.grid(row=2, column=0, padx=15, pady=5, sticky="ew")
+        # ── Nav buttons ──────────────────────────────────────────────────────
+        for item in self.NAV_ITEMS:
+            btn = ctk.CTkButton(
+                self,
+                text=item["label"],
+                command=lambda k=item["key"]: self._on_nav_click(k),
+                font=ctk.CTkFont(family=FONTS["body"][0], size=FONTS["body"][1]),
+                height=42,
+                corner_radius=RADIUS["md"],
+                fg_color="transparent",
+                hover_color=COLORS["hover_nav"],
+                text_color=COLORS["text_secondary"],
+                anchor="w",
+            )
+            btn.grid(row=item["row"], column=0, padx=12, pady=3, sticky="ew")
+            self._buttons[item["key"]] = btn
 
-        # Appearance Mode Toggle
-        self.mode_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.mode_frame.grid(row=6, column=0, padx=20, pady=(5, 30), sticky="ew")
-        
-        self.appearance_mode_menu = ctk.CTkOptionMenu(
-            self.mode_frame, 
+        # ── Footer: Appearance toggle ────────────────────────────────────────
+        footer = ctk.CTkFrame(self, fg_color="transparent")
+        footer.grid(row=6, column=0, padx=SPACING["lg"], pady=(8, 24), sticky="sew")
+
+        ctk.CTkLabel(
+            footer,
+            text="Appearance",
+            font=ctk.CTkFont(family=FONTS["caption"][0], size=FONTS["caption"][1]),
+            text_color=COLORS["text_muted"],
+        ).pack(anchor="w", pady=(0, 6))
+
+        self.appearance_menu = ctk.CTkOptionMenu(
+            footer,
             values=["System", "Light", "Dark"],
-            command=self.change_appearance_mode_event,
-            fg_color=("#e5e5e5", "#2d2d2d"),
-            button_color=("#d1d1d1", "#3d3d3d"),
-            button_hover_color=("#c5c5c5", "#4d4d4d"),
-            text_color=("gray10", "gray90"),
-            font=ctk.CTkFont(family="Inter", size=12)
+            command=self._change_appearance,
+            fg_color=COLORS["bg_input"],
+            button_color=(COLORS["border"][0], "#333333"),
+            button_hover_color=COLORS["hover_nav"],
+            text_color=COLORS["text_primary"],
+            font=ctk.CTkFont(family=FONTS["body_sm"][0], size=FONTS["body_sm"][1]),
+            corner_radius=RADIUS["sm"],
+            height=32,
         )
-        self.appearance_mode_menu.pack(fill="x")
-        self.appearance_mode_menu.set("Dark")
+        self.appearance_menu.pack(fill="x")
+        self.appearance_menu.set("Dark")
 
-    def _on_nav_click(self, page_name):
-        # Reset button styles
-        self.notes_btn.configure(fg_color="transparent", text_color=("gray10", "gray80"))
-        self.settings_btn.configure(fg_color="transparent", text_color=("gray10", "gray80"))
-        
-        # Set active style
-        active_btn = self.notes_btn if page_name == "notes" else self.settings_btn
-        active_btn.configure(fg_color=("#3b82f6", "#2563eb"), text_color="white")
-        
-        self.nav_callback(page_name)
+        # Set initial active state
+        self._set_active("notes")
 
-    def change_appearance_mode_event(self, new_appearance_mode: str):
-        ctk.set_appearance_mode(new_appearance_mode)
+    # ── Navigation ───────────────────────────────────────────────────────────
+
+    def _on_nav_click(self, key: str):
+        self._set_active(key)
+        self.nav_callback(key)
+
+    def _set_active(self, active_key: str):
+        """Highlight the active nav button, reset others."""
+        for key, btn in self._buttons.items():
+            if key == active_key:
+                btn.configure(
+                    fg_color=(COLORS["accent"], COLORS["accent"]),
+                    text_color=COLORS["text_white"],
+                    hover_color=(COLORS["accent_hover"], COLORS["accent_hover"]),
+                )
+            else:
+                btn.configure(
+                    fg_color="transparent",
+                    text_color=COLORS["text_secondary"],
+                    hover_color=COLORS["hover_nav"],
+                )
+
+    @staticmethod
+    def _change_appearance(mode: str):
+        ctk.set_appearance_mode(mode)
