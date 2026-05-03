@@ -1,0 +1,18 @@
+# Byte Code
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment
+.env
+venv/
+env/
+.venv/
+
+# DB
+*.db
+*.sqlite3
+
+# Exports
+exports/*
+!exports/.gitkeep
